@@ -176,6 +176,36 @@
   .checklist-item input { margin-top: 2px; flex-shrink: 0; }
   .checklist-item.checked span { text-decoration: line-through; color: var(--muted); }
   .ready-badge { font-size: 10px; font-weight: 600; color: #3f6b3f; margin-top: 4px; }
+  .priority-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 5px;
+  }
+  .priority-select {
+    font-family: inherit;
+    font-size: 10.5px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    cursor: pointer;
+  }
+  .priority-select.p-none { background: #E9E7E0; color: var(--muted); }
+  .priority-select.p-P0 { background: #F6D6D2; color: #8a2f22; }
+  .priority-select.p-P1 { background: #FAE7BE; color: #7a5710; }
+  .priority-select.p-P2 { background: #DCE8F4; color: #2c5f8a; }
+  .pending-warning {
+    font-size: 10.5px;
+    font-weight: 600;
+    color: #a35a12;
+    background: #FCEFDA;
+    border: 1px solid #F0D4A6;
+    border-radius: 6px;
+    padding: 4px 7px;
+    margin-top: 6px;
+    line-height: 1.4;
+  }
   .delivery-field { margin-top: 7px; padding-top: 7px; border-top: 1px dashed var(--demand-border); }
   .delivery-field label { font-size: 10.5px; color: var(--muted); display: block; margin-bottom: 3px; }
   .delivery-field select {
@@ -539,9 +569,9 @@ function emptyMilestones() {
 }
 
 const defaultDemands = [
-  { id: "d1", title: "Simulador de frete", days: "3 dias na etapa", stageIndex: 2, checks: null, deliveryType: "", milestones: emptyMilestones() },
-  { id: "d2", title: "Regras de frete", days: "9 dias na etapa", stageIndex: 4, checks: null, deliveryType: "", milestones: emptyMilestones() },
-  { id: "d3", title: "Home alavancas", days: "2 dias na etapa", stageIndex: 7, checks: null, deliveryType: "", milestones: emptyMilestones() }
+  { id: "d1", title: "Simulador de frete", days: "3 dias na etapa", stageIndex: 2, checks: null, deliveryType: "", priority: "", pendingWarning: null, milestones: emptyMilestones() },
+  { id: "d2", title: "Regras de frete", days: "9 dias na etapa", stageIndex: 4, checks: null, deliveryType: "", priority: "", pendingWarning: null, milestones: emptyMilestones() },
+  { id: "d3", title: "Home alavancas", days: "2 dias na etapa", stageIndex: 7, checks: null, deliveryType: "", priority: "", pendingWarning: null, milestones: emptyMilestones() }
 ];
 
 let demands = [];
@@ -659,9 +689,22 @@ function renderDeliveryField(demand) {
 }
 
 function renderCard(demand) {
+  const priority = demand.priority || '';
+  const pClass = priority ? 'p-' + priority : 'p-none';
+  const warning = demand.pendingWarning
+    ? `<div class="pending-warning">⚠ avançou de "${escapeHtml(demand.pendingWarning)}" com critério(s) pendente(s)</div>`
+    : '';
   return `
     <div class="demand-card" data-id="${demand.id}">
       <button class="remove-btn" onclick="removeDemand('${demand.id}')" title="Remover">✕</button>
+      <div class="priority-row">
+        <select class="priority-select ${pClass}" onchange="setPriority('${demand.id}', this.value)">
+          <option value="" ${priority === '' ? 'selected' : ''}>Sem prioridade</option>
+          <option value="P0" ${priority === 'P0' ? 'selected' : ''}>P0</option>
+          <option value="P1" ${priority === 'P1' ? 'selected' : ''}>P1</option>
+          <option value="P2" ${priority === 'P2' ? 'selected' : ''}>P2</option>
+        </select>
+      </div>
       <div class="demand-title" contenteditable="true" onblur="setField('${demand.id}', 'title', this.textContent)">${escapeHtml(demand.title)}</div>
       <div class="demand-days" contenteditable="true" onblur="setField('${demand.id}', 'days', this.textContent)">${escapeHtml(demand.days)}</div>
       <div class="progress-track">${renderTrack(demand.stageIndex)}</div>
@@ -669,6 +712,7 @@ function renderCard(demand) {
       <span class="checklist-toggle" onclick="toggleChecklist(this)">ver critérios desta etapa</span>
       <div class="checklist">${renderChecklist(demand)}</div>
       <div>${renderReadyBadge(demand)}</div>
+      ${warning}
       ${renderDeliveryField(demand)}
       <div class="move-row">
         <button class="move-btn" onclick="moveDemand('${demand.id}', -1)" ${demand.stageIndex === 0 ? 'disabled' : ''}>‹ voltar</button>
@@ -731,11 +775,37 @@ function setDeliveryType(id, value) {
   saveState();
 }
 
+function setPriority(id, value) {
+  const d = findDemand(id);
+  if (!d) return;
+  d.priority = value;
+  saveState();
+  renderPipeline();
+}
+
 function moveDemand(id, delta) {
   const d = findDemand(id);
   if (!d) return;
   const newStage = d.stageIndex + delta;
   if (newStage < 0 || newStage >= stages.length) return;
+
+  if (delta > 0) {
+    const items = stages[d.stageIndex].gate;
+    const checks = (d.checks && d.checks.length === items.length) ? d.checks : items.map(() => false);
+    const allDone = items.length === 0 || checks.every(Boolean);
+    if (!allDone) {
+      const proceed = confirm(
+        'Nem todos os critérios de "' + stages[d.stageIndex].name + '" foram marcados.\n\nAvançar mesmo assim?'
+      );
+      if (!proceed) return;
+      d.pendingWarning = stages[d.stageIndex].name;
+    } else {
+      d.pendingWarning = null;
+    }
+  } else {
+    d.pendingWarning = null;
+  }
+
   d.stageIndex = newStage;
   d.checks = null;
   saveState();
@@ -775,6 +845,8 @@ function addDemand() {
     stageIndex: idx,
     checks: null,
     deliveryType: "",
+    priority: "",
+    pendingWarning: null,
     milestones: emptyMilestones()
   });
   saveState();
