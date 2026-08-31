@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Painel do processo — minhas demandas</title>
+<style>
+  :root {
+    --bg: #F7F6F2;
+    --card: #FFFFFF;
+    --line: #DCD9D0;
+    --line-strong: #B9B5A9;
+    --ink: #24231F;
+    --muted: #6B6960;
+    --accent: #5A4632;
+    --accent-bg: #EFE6D8;
+    --gate-bg: #FBF6E8;
+    --gate-line: #E1D6A8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    padding: 32px 28px 60px;
+  }
+  header {
+    max-width: 1200px;
+    margin: 0 auto 24px;
+  }
+  h1 {
+    font-size: 20px;
+    font-weight: 600;
+    margin: 0 0 4px;
+    letter-spacing: -0.01em;
+  }
+  .subtitle {
+    font-size: 13px;
+    color: var(--muted);
+    margin: 0;
+  }
+  .toolbar {
+    max-width: 1200px;
+    margin: 0 auto 10px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  button {
+    font-family: inherit;
+    font-size: 13px;
+    background: var(--card);
+    border: 1px solid var(--line-strong);
+    border-radius: 6px;
+    padding: 7px 14px;
+    cursor: pointer;
+    color: var(--ink);
+  }
+  button:hover { background: var(--accent-bg); }
+  button.primary {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+  button.primary:hover { opacity: 0.9; }
+  .hint {
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .save-status {
+    font-size: 11.5px;
+    color: #4a7a4a;
+    max-width: 1200px;
+    margin: 0 auto 14px;
+    min-height: 16px;
+  }
+  .board-wrap {
+    max-width: 1200px;
+    margin: 0 auto;
+    overflow-x: auto;
+    padding-bottom: 12px;
+  }
+  .board {
+    display: flex;
+    gap: 10px;
+    min-width: 1500px;
+  }
+  .stage {
+    flex: 1;
+    min-width: 128px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .stage-head {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 10px 9px;
+    position: relative;
+  }
+  .stage-num {
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .stage-name {
+    font-size: 13px;
+    font-weight: 600;
+    margin-top: 2px;
+    line-height: 1.25;
+  }
+  .stage-owner {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 3px;
+  }
+  .stage-count {
+    font-size: 11px;
+    color: var(--accent);
+    font-weight: 600;
+    margin-top: 3px;
+  }
+  .gate-toggle {
+    font-size: 10px;
+    color: var(--accent);
+    cursor: pointer;
+    margin-top: 6px;
+    display: inline-block;
+    user-select: none;
+    border-bottom: 1px dotted var(--accent);
+  }
+  .gate-box {
+    display: none;
+    background: var(--gate-bg);
+    border: 1px solid var(--gate-line);
+    border-radius: 6px;
+    padding: 8px 9px;
+    font-size: 11px;
+    color: #5c5324;
+    margin-top: 6px;
+    line-height: 1.5;
+  }
+  .gate-box.open { display: block; }
+  .cards {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 20px;
+  }
+  .demand-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 9px 10px;
+    font-size: 12.5px;
+    position: relative;
+  }
+  .demand-title {
+    font-weight: 600;
+    outline: none;
+    cursor: text;
+    padding-right: 14px;
+  }
+  .demand-days {
+    color: var(--muted);
+    font-size: 11px;
+    margin-top: 4px;
+    outline: none;
+    cursor: text;
+  }
+  .remove-btn {
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    font-size: 12px;
+    color: var(--muted);
+    background: none;
+    border: none;
+    padding: 0 3px;
+    cursor: pointer;
+  }
+  .remove-btn:hover { color: #a33; }
+  .active-stage .stage-head {
+    background: var(--accent-bg);
+    border-color: var(--accent);
+  }
+  [contenteditable="true"]:focus {
+    background: #FFF9E8;
+    border-radius: 3px;
+  }
+  footer {
+    max-width: 1200px;
+    margin: 24px auto 0;
+    font-size: 11.5px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+  #import-input { display: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Processo de desenvolvimento — minhas demandas</h1>
+  <p class="subtitle">Painel de status para acompanhar em qual etapa cada demanda está. Tudo é salvo automaticamente neste navegador.</p>
+</header>
+
+<div class="toolbar">
+  <button class="primary" onclick="addDemand()">+ Nova demanda</button>
+  <button onclick="exportData()">Exportar backup</button>
+  <button onclick="document.getElementById('import-input').click()">Importar backup</button>
+  <input type="file" id="import-input" accept=".json" onchange="importData(event)">
+  <button onclick="resetAll()">Limpar tudo</button>
+  <span class="hint">Clique no nome ou nos dias de uma demanda para editar.</span>
+</div>
+<div class="save-status" id="save-status"></div>
+
+<div class="board-wrap">
+  <div class="board" id="board"></div>
+</div>
+
+<footer>
+  Baseado no processo de desenvolvimento interno (Pesquisa estratégica → Roadmap → Exploração inicial → Exploração design → Ideação → Validação → Desenvolvimento → QA → Entrega piloto → Entrega mercado → Análise).
+  Os dados ficam salvos neste navegador (localStorage). Use "Exportar backup" de vez em quando para não depender só do navegador — principalmente se for trocar de computador ou limpar o cache.
+  Este arquivo não sincroniza com Jira/Figma; atualize manualmente conforme suas demandas avançam.
+</footer>
+
+<script>
+const STORAGE_KEY = "painel_processo_demandas_v1";
+
+const stages = [
+  { name: "Pesquisa estratégica", owner: "UX Researcher", gate: "Oportunidade identificada · evidências coletadas · hipótese estratégica construída" },
+  { name: "Roadmap", owner: "GPM / Diretoria", gate: "Iniciativa priorizada · objetivo claro · contexto mínimo alinhado" },
+  { name: "Exploração inicial", owner: "PM, Design lead, Tech lead", gate: "Problema validado · escopo inicial definido" },
+  { name: "Exploração design", owner: "Design", gate: "Jornada definida · principais dúvidas mapeadas" },
+  { name: "Ideação", owner: "Design, PM, Engenharia", gate: "Solução validada · solução desenhada · regras de negócio definidas" },
+  { name: "Validação", owner: "PM, Design, QA", gate: "Feedbacks tratados · escopo fechado (MVP) · estimativa de esforço" },
+  { name: "Desenvolvimento", owner: "Engenharia, PM", gate: "Funcionalidade implementada · evidência registrada · ambiente/massa de teste disponível" },
+  { name: "QA", owner: "QA, PM, Marketing", gate: "Bugs críticos solucionados · sem riscos críticos · vídeo demonstrativo da funcionalidade" },
+  { name: "Entrega piloto", owner: "PM, Operações, Suporte", gate: "Piloto validado (quando aplicável) · monitoramento ativo · ops preparado" },
+  { name: "Entrega mercado", owner: "Marketing, PM", gate: "Comunicação no produto feita · publicação para toda a base" },
+  { name: "Análise", owner: "PM, Tech lead, Dados", gate: "Métricas coletadas · aprendizado registrado · decisão tomada" }
+];
+
+const defaultDemands = [
+  { title: "Simulador de frete", days: "3 dias na etapa", stageIndex: 2 },
+  { title: "Regras de frete", days: "9 dias na etapa", stageIndex: 4 },
+  { title: "Home alavancas", days: "2 dias na etapa", stageIndex: 7 }
+];
+
+const board = document.getElementById('board');
+let cardIdCounter = 0;
+
+function loadData() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {
+    console.error("Falha ao ler dados salvos:", e);
+  }
+  return defaultDemands;
+}
+
+function saveData() {
+  const demands = [];
+  document.querySelectorAll('.demand-card').forEach(card => {
+    const stageIndex = parseInt(card.closest('.stage').dataset.index, 10);
+    const title = card.querySelector('.demand-title').textContent.trim();
+    const days = card.querySelector('.demand-days').textContent.trim();
+    demands.push({ title, days, stageIndex });
+  });
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(demands));
+    flashSaved();
+  } catch (e) {
+    console.error("Falha ao salvar:", e);
+    document.getElementById('save-status').textContent = "Não foi possível salvar automaticamente neste navegador.";
+  }
+}
+
+let flashTimeout;
+function flashSaved() {
+  const el = document.getElementById('save-status');
+  el.textContent = "Salvo automaticamente.";
+  clearTimeout(flashTimeout);
+  flashTimeout = setTimeout(() => { el.textContent = ""; }, 1500);
+}
+
+function buildBoard(demands) {
+  board.innerHTML = "";
+  stages.forEach((s, i) => {
+    const col = document.createElement('div');
+    col.className = 'stage';
+    col.dataset.index = i;
+    col.innerHTML = `
+      <div class="stage-head">
+        <div class="stage-num">${i + 1}</div>
+        <div class="stage-name">${s.name}</div>
+        <div class="stage-owner">${s.owner}</div>
+        <div class="stage-count" id="count-${i}"></div>
+        <span class="gate-toggle" onclick="toggleGate(this)">critérios p/ avançar</span>
+        <div class="gate-box">${s.gate}</div>
+      </div>
+      <div class="cards" id="cards-${i}"></div>
+    `;
+    board.appendChild(col);
+  });
+
+  demands.forEach(d => addCard(d.stageIndex, d.title, d.days, false));
+  updateCounts();
+}
+
+function toggleGate(el) {
+  el.nextElementSibling.classList.toggle('open');
+}
+
+function addCard(stageIndex, title, days, persist) {
+  const container = document.getElementById('cards-' + stageIndex);
+  const card = document.createElement('div');
+  card.className = 'demand-card';
+  const id = 'card-' + (cardIdCounter++);
+  card.id = id;
+  card.innerHTML = `
+    <button class="remove-btn" onclick="removeCard('${id}', ${stageIndex})" title="Remover">✕</button>
+    <div class="demand-title" contenteditable="true" onblur="saveData()">${escapeHtml(title)}</div>
+    <div class="demand-days" contenteditable="true" onblur="saveData()">${escapeHtml(days)}</div>
+  `;
+  container.appendChild(card);
+  markActive(stageIndex);
+  if (persist) { saveData(); updateCounts(); }
+}
+
+function removeCard(id, stageIndex) {
+  const el = document.getElementById(id);
+  if (el) el.remove();
+  updateStageActiveState(stageIndex);
+  saveData();
+  updateCounts();
+}
+
+function markActive(stageIndex) {
+  const col = document.querySelector('.stage[data-index="' + stageIndex + '"]');
+  if (col) col.classList.add('active-stage');
+}
+
+function updateStageActiveState(stageIndex) {
+  const col = document.querySelector('.stage[data-index="' + stageIndex + '"]');
+  if (!col) return;
+  const hasCards = col.querySelectorAll('.demand-card').length > 0;
+  col.classList.toggle('active-stage', hasCards);
+}
+
+function updateCounts() {
+  stages.forEach((s, i) => {
+    const n = document.querySelectorAll('#cards-' + i + ' .demand-card').length;
+    const countEl = document.getElementById('count-' + i);
+    if (countEl) countEl.textContent = n > 0 ? n + (n === 1 ? " demanda" : " demandas") : "";
+  });
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function addDemand() {
+  const title = prompt("Nome da demanda:");
+  if (!title) return;
+  const stageNames = stages.map((s, i) => (i + 1) + " - " + s.name).join("\n");
+  const choice = prompt("Em qual etapa ela está? Digite o número:\n\n" + stageNames);
+  const idx = parseInt(choice, 10) - 1;
+  if (isNaN(idx) || idx < 0 || idx >= stages.length) {
+    alert("Número de etapa inválido.");
+    return;
+  }
+  addCard(idx, title, "adicionada agora", true);
+}
+
+function exportData() {
+  const raw = localStorage.getItem(STORAGE_KEY) || "[]";
+  const blob = new Blob([raw], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = "backup_demandas_" + new Date().toISOString().slice(0,10) + ".json";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!Array.isArray(data)) throw new Error("formato inválido");
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      buildBoard(data);
+      flashSaved();
+    } catch (err) {
+      alert("Não foi possível importar este arquivo. Verifique se é um backup exportado por este mesmo painel.");
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = "";
+}
+
+function resetAll() {
+  if (!confirm("Isso vai apagar todas as demandas salvas neste navegador. Tem certeza?")) return;
+  localStorage.removeItem(STORAGE_KEY);
+  buildBoard(defaultDemands);
+}
+
+buildBoard(loadData());
+</script>
+
+</body>
+</html>
